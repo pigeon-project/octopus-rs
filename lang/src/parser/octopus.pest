@@ -1,0 +1,126 @@
+//
+// Created by intellij-pest on 2020-07-16
+// octopus
+// Author: lyzh
+//
+
+octopus = { (!EOI ~ top_level_block)* ~ EOI }
+
+top_level_block = { trait_def | type_def | fun_def }
+
+type_def =
+    { type_alias
+    | struct_def
+    | enum_def
+}
+
+type_alias = { "type" ~ type_name ~ "=" ~ type_expr ~ ";" }
+
+trait_def = { "trait" ~ type_name ~ "{" ~ (fun_def | (fun_sign ~ ";"))* ~ "}" }
+
+struct_def = { "struct" ~ type_name ~ (type_tuple_on_struct | named_tuple_type | record) }
+
+enum_def = {
+    "enum" ~ type_name ~ "{" ~ (enum_node ~ ",")* ~ (enum_node ~ ","?)? ~ "}"
+}
+
+enum_node = {
+    name ~ (tuple_type | named_tuple_type)?
+}
+
+type_expr =
+    { type_name
+    | type_var
+    | tuple_type
+}
+
+type_tuple_on_struct = { tuple_type ~ ";" }
+
+named_tuple_type = {
+    "(" ~ (type_kv_pair ~ ",")* ~ (type_kv_pair ~ ","?)? ~ ")"
+}
+
+tuple_type = {
+    "(" ~ (type_expr ~ ",")* ~ (type_expr ~ ","?)? ~ ")"
+}
+
+record = {
+    "{" ~ (type_kv_pair ~ ",")* ~ (type_kv_pair ~ ","?)? ~ "}"
+}
+
+type_kv_pair = {
+    name ~ ":" ~ type_expr
+}
+
+fun_def = {
+    fun_sign ~ (fun_body_expr | code_block)
+}
+
+fun_sign = { "fun" ~ name ~ params_list ~ return_annotation? ~ throw_annotation? }
+
+return_annotation = { "->" ~ type_expr }
+
+throw_annotation = { "throw" ~ (type_name ~ "|")* ~ type_name }
+
+params_list = { named_tuple_type }
+
+fun_body_expr = { "=" ~ expr }
+
+
+code_block = {
+    "{" ~ (stat | expr) ~ "}"
+}
+
+stat =
+    { expr
+    }
+
+expr =
+    { literal
+    | name
+    }
+
+literal =
+    { unit_lit
+    | bool_lit
+    | string_lit
+    }
+
+bool_lit = { "false" | "true" }
+
+unit_lit = { "unit" | "()" }
+
+string_lit = $ { "\"" ~ (escape | (!("\\" | "\"") ~ ANY)+)* ~ "\""}
+
+escape = _{ "\\\\"
+          | "\\\""
+          | "\\'"
+          | "\\n"
+          | "\\r"
+          | "\\t"
+          }
+
+type_var = ${ name }
+
+type_name = ${ (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+name = ${ (ASCII_ALPHA_LOWER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+UNDERLINE = _ { "_" }
+
+line_comment = _{
+    "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE?
+}
+
+block_comment = _{
+    "/*" ~ (block_comment | (!"*/" ~ ANY))* ~ "*/"
+}
+
+COMMENT = _{ line_comment | block_comment }
+
+WHITESPACE = _
+    { " "
+    | "\t"
+    | WHITE_SPACE
+    | NEWLINE
+    }

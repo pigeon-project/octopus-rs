@@ -1,0 +1,2 @@
+C:\MinGW\bin\ar.exe qc liboctopus_crt.a  CMakeFiles/octopus_crt.dir/src/lib.cpp.obj
+C:\MinGW\bin\ranlib.exe liboctopus_crt.a

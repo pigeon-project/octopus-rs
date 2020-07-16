@@ -1,0 +1,2 @@
+C:\MinGW\bin\ar.exe qc libSTATIC.a  CMakeFiles/STATIC.dir/src/lib.cpp.obj
+C:\MinGW\bin\ranlib.exe libSTATIC.a
