@@ -1,3 +1,5 @@
+/cruntime/cmake-build-debug
+
 /target
 
 Cargo.lock

@@ -14,14 +14,14 @@ type_def =
     | enum_def
 }
 
-type_alias = { "type" ~ type_name ~ "=" ~ type_expr ~ ";" }
+type_alias = { kw_type ~ type_name ~ "=" ~ type_expr ~ ";" }
 
-trait_def = { "trait" ~ type_name ~ "{" ~ (fun_def | (fun_sign ~ ";"))* ~ "}" }
+trait_def = { kw_trait ~ type_name ~ "{" ~ (fun_def | (fun_sign ~ ";"))* ~ "}" }
 
-struct_def = { "struct" ~ type_name ~ (type_tuple_on_struct | named_tuple_type | record) }
+struct_def = { kw_struct ~ type_name ~ (type_tuple_on_struct | named_type_tuple_on_struct | record) }
 
 enum_def = {
-    "enum" ~ type_name ~ "{" ~ (enum_node ~ ",")* ~ (enum_node ~ ","?)? ~ "}"
+    kw_enum ~ type_name ~ "{" ~ (enum_node ~ ",")* ~ (enum_node ~ ","?)? ~ "}"
 }
 
 enum_node = {
@@ -29,15 +29,27 @@ enum_node = {
 }
 
 type_expr =
-    { type_name
-    | type_var
+    { kw_never
+    | unit_type
     | tuple_type
+    | type_name
+    | type_var
 }
 
 type_tuple_on_struct = { tuple_type ~ ";" }
 
+named_type_tuple_on_struct = { named_tuple_type ~ ";" }
+
+pointer_type = { "*" ~ type_expr }
+reference_type = { "&" ~ type_expr }
+array_type = { "[" ~ type_expr ~ "]" }
+
 named_tuple_type = {
     "(" ~ (type_kv_pair ~ ",")* ~ (type_kv_pair ~ ","?)? ~ ")"
+}
+
+unit_type = {
+    "Unit" | ("(" ~ ")")
 }
 
 tuple_type = {
@@ -53,44 +65,105 @@ type_kv_pair = {
 }
 
 fun_def = {
-    fun_sign ~ (fun_body_expr | code_block)
+    fun_sign ~ code_block
 }
 
-fun_sign = { "fun" ~ name ~ params_list ~ return_annotation? ~ throw_annotation? }
-
-return_annotation = { "->" ~ type_expr }
-
-throw_annotation = { "throw" ~ (type_name ~ "|")* ~ type_name }
+fun_sign = { (kw_unsafe | kw_constexpr)? ~ kw_fun ~ name ~ params_list ~ return_annotation? ~ throw_annotation? }
 
 params_list = { named_tuple_type }
 
-fun_body_expr = { "=" ~ expr }
+type_annotation = { ":" ~ type_expr }
 
+return_annotation = { "->" ~ type_expr }
+
+throw_annotation = { kw_throws ~ (type_name ~ "|")* ~ type_name }
 
 code_block = {
-    "{" ~ (stat | expr) ~ "}"
+    kw_unsafe? ~ kw_async? ~ "{" ~ (stmt | expr)* ~ "}"
 }
 
-stat =
-    { expr
+stmt =
+    { let_binding
+    | use_binding
+    | if_expr
+    | for_stmt
+    | loop_stmt
+    | while_stmt
+    | expr ~ ";"
+    }
+
+let_binding = { kw_let ~ pattern ~ kw_mut? ~ type_annotation? ~ "=" ~ expr ~ ";" }
+use_binding = { kw_use ~ pattern ~ type_annotation? ~ "=" ~ expr ~ ";" }
+
+for_stmt = {
+    kw_for ~ pattern ~ kw_in ~ expr ~ code_block
+}
+
+while_stmt = {
+    kw_while ~ expr ~ code_block
+}
+
+loop_stmt = {
+    kw_loop ~ code_block
+}
+
+if_expr = { kw_if ~ cond_body_block ~ else_if_block* ~ else_block? }
+
+else_if_block = { kw_else ~ kw_if ~ cond_body_block }
+
+else_block = { kw_else ~ code_block }
+
+cond_body_block = { expr ~ code_block }
+
+pattern =
+    { UNDERLINE
+    | name
     }
 
 expr =
-    { literal
+    {
+    ( if_expr
+    | literal
     | name
+    | code_block
+    ) ~ ( function_call+ | get_attribute+)?
     }
+
+function_call = { "(" ~ expr* ~ ")" }
+
+// coroutine_call = { "." ~ kw_hang }
+
+// await_ = { "." ~ kw_await }
+
+get_attribute = { ("." ~ (name | uns_number_lit | kw_await))+ }
 
 literal =
     { unit_lit
     | bool_lit
+    | char_lit
     | string_lit
+    | number_lit
     }
 
-bool_lit = { "false" | "true" }
+number_lit = $ { ("+" | "-")? ~ uns_number_lit }
 
-unit_lit = { "unit" | "()" }
+uns_number_dec = _ { ASCII_DIGIT+ }
+uns_number_hex = _ { "0x" ~ ASCII_HEX_DIGIT+ }
+uns_number_bin = _ { "0x" ~ ASCII_BIN_DIGIT+ }
+
+uns_number_lit = $
+    { uns_number_hex
+    | uns_number_bin
+    | uns_number_dec
+    }
+
+bool_lit = { kw_false | kw_true }
+
+unit_lit = { kw_unit | ("(" ~ ")") }
 
 string_lit = $ { "\"" ~ (escape | (!("\\" | "\"") ~ ANY)+)* ~ "\""}
+
+char_lit = $ { "\'" ~ (escape | ANY) ~ "\'" }
 
 escape = _{ "\\\\"
           | "\\\""
@@ -100,11 +173,78 @@ escape = _{ "\\\\"
           | "\\t"
           }
 
-type_var = ${ name }
+type_var = ${ type_name }
 
 type_name = ${ (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 
-name = ${ (ASCII_ALPHA_LOWER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+name = ${ !KEYWORD ~ (ASCII_ALPHA_LOWER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+KEYWORD =
+    { kw_never
+    | kw_unit
+    | kw_true
+    | kw_false
+
+    | kw_type
+    | kw_enum
+    | kw_struct
+    | kw_trait
+
+    | kw_in
+    | kw_out
+
+    | kw_mut
+
+    | kw_fun
+    | kw_let
+    | kw_use
+
+    | kw_if
+    | kw_else
+    | kw_for
+    | kw_loop
+    | kw_while
+
+    | kw_hang
+
+    | kw_async
+    | kw_await
+
+    | kw_unsafe
+
+    | kw_throws
+    | kw_constexpr
+    | UNDERLINE
+}
+
+kw_never = ${ "!" }
+kw_unit = ${ "unit" }
+kw_true = ${ "true" }
+kw_false = ${ "false" }
+
+kw_type = ${ "type" }
+kw_enum = ${ "enum" }
+kw_struct = ${ "struct" }
+kw_trait = ${ "trait" }
+
+kw_in = ${ "in" }
+kw_out = ${ "out" }
+
+kw_fun = ${ "fun" }
+kw_let = ${ "let" }
+kw_use = ${ "use" }
+kw_mut = ${ "mut" }
+kw_for = ${ "for" }
+kw_if = ${ "if" }
+kw_else = ${ "else" }
+kw_hang = ${ "hang" }
+kw_loop = ${ "loop" }
+kw_while = ${ "while" }
+kw_throws = ${ "throws" }
+kw_async = ${ "async" }
+kw_await = ${ "await" }
+kw_unsafe = ${ "unsafe" }
+kw_constexpr = ${ "constexpr" | "const" }
 
 UNDERLINE = _ { "_" }
 
