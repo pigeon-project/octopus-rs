@@ -120,13 +120,45 @@ pattern =
     | name
     }
 
-expr =
-    {
-    ( if_expr
+expr_atom =
+    { if_expr
     | literal
+    | "(" ~ expr ~ ")"
     | name
     | code_block
-    ) ~ ( function_call+ | get_attribute+)?
+    }
+
+expr = { expr_relational ~ (logical_op ~ expr_relational)* ~ ";"? }
+
+expr_list = { expr+ }
+
+logical_op = { "&&" | "||" }
+
+relational_op = { "<=" | "<" | ">=" | ">" | "==" | "!=" }
+
+level1_op = { "+" | "-" }
+
+level2_op = { "*" | "/" | "%" }
+
+level3_op = { "^" }
+
+unary_op = { "!" }
+
+expr_relational = { expr_binary_level1 ~ (relational_op ~ expr_binary_level1)* }
+
+expr_binary_level1 = { expr_binary_level2 ~ (level1_op ~ expr_binary_level2)* }
+
+expr_binary_level2 = { expr_binary_level3 ~ (level2_op ~ expr_binary_level3)* }
+
+expr_binary_level3 = { expr_unary ~ (level3_op ~ expr_unary)? }
+
+expr_unary = { unary_op ~ expr_unary
+             | expr_atom ~ atom_postfix*
+             }
+
+atom_postfix =
+    { function_call
+    | get_attribute
     }
 
 function_call = { "(" ~ expr* ~ ")" }
