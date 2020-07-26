@@ -6,7 +6,13 @@
 
 octopus = { (!EOI ~ top_level_block)* ~ EOI }
 
-top_level_block = { trait_def | type_def | fun_def }
+top_level_block =
+    { trait_def
+    | impl_def
+    | type_def
+    | fun_def
+    | constexpr
+    }
 
 type_def =
     { type_alias
@@ -18,6 +24,10 @@ type_alias = { kw_type ~ type_name ~ "=" ~ type_expr ~ ";" }
 
 trait_def = { kw_trait ~ type_name ~ "{" ~ (fun_def | (fun_sign ~ ";"))* ~ "}" }
 
+impl_def = {
+    kw_impl ~ (type_name ~ "for")? ~ type_name ~ "{" ~ fun_def* ~ "}"
+}
+
 struct_def = { kw_struct ~ type_name ~ (type_tuple_on_struct | named_type_tuple_on_struct | record) }
 
 enum_def = {
@@ -25,7 +35,7 @@ enum_def = {
 }
 
 enum_node = {
-    name ~ (tuple_type | named_tuple_type)?
+    type_name ~ (tuple_type | named_tuple_type)?
 }
 
 type_expr =
@@ -79,12 +89,13 @@ return_annotation = { "->" ~ type_expr }
 throw_annotation = { kw_throws ~ (type_name ~ "|")* ~ type_name }
 
 code_block = {
-    kw_unsafe? ~ kw_async? ~ "{" ~ (stmt | expr)* ~ "}"
+    kw_unsafe? ~ "{" ~ (stmt | expr)* ~ "}"
 }
 
 stmt =
     { let_binding
     | use_binding
+    | constexpr
     | if_expr
     | for_stmt
     | loop_stmt
@@ -94,6 +105,7 @@ stmt =
 
 let_binding = { kw_let ~ pattern ~ kw_mut? ~ type_annotation? ~ "=" ~ expr ~ ";" }
 use_binding = { kw_use ~ pattern ~ type_annotation? ~ "=" ~ expr ~ ";" }
+constexpr = { kw_constexpr ~ pattern ~ type_annotation? ~  "=" ~ expr ~ ";" }
 
 for_stmt = {
     kw_for ~ pattern ~ kw_in ~ expr ~ code_block
@@ -118,7 +130,16 @@ cond_body_block = { expr ~ code_block }
 pattern =
     { UNDERLINE
     | name
+    | literal
     }
+
+pattern_match = {
+    kw_match ~ "{" ~ (match_pair ~ ",")* ~ (match_pair ~ ","?)?  ~ "}"
+}
+
+match_pair = {
+    pattern ~ "=>" ~ expr
+}
 
 expr_atom =
     { if_expr
@@ -128,17 +149,15 @@ expr_atom =
     | code_block
     }
 
-expr = { expr_relational ~ (logical_op ~ expr_relational)* ~ ";"? }
-
-expr_list = { expr+ }
+expr = { expr_relational ~ (logical_op ~ expr_relational)* }
 
 logical_op = { "&&" | "||" }
 
-relational_op = { "<=" | "<" | ">=" | ">" | "==" | "!=" }
+relational_op = { "<=" | "<" | ">=" | ">" | "=" | "!=" }
 
 level1_op = { "+" | "-" }
 
-level2_op = { "*" | "/" | "%" }
+level2_op = { "*" | "/" | "^" | "%" }
 
 level3_op = { "^" }
 
@@ -152,9 +171,10 @@ expr_binary_level2 = { expr_binary_level3 ~ (level2_op ~ expr_binary_level3)* }
 
 expr_binary_level3 = { expr_unary ~ (level3_op ~ expr_unary)? }
 
-expr_unary = { unary_op ~ expr_unary
-             | expr_atom ~ atom_postfix*
-             }
+expr_unary =
+    { unary_op ~ expr_unary
+    | expr_atom ~ atom_postfix*
+    }
 
 atom_postfix =
     { function_call
@@ -167,7 +187,7 @@ function_call = { "(" ~ expr* ~ ")" }
 
 // await_ = { "." ~ kw_await }
 
-get_attribute = { ("." ~ (name | uns_number_lit | kw_await))+ }
+get_attribute = { ("." ~ (name | uns_number_lit))+ }
 
 literal =
     { unit_lit
@@ -219,8 +239,9 @@ KEYWORD =
 
     | kw_type
     | kw_enum
-    | kw_struct
+    | kw_impl
     | kw_trait
+    | kw_struct
 
     | kw_in
     | kw_out
@@ -236,6 +257,7 @@ KEYWORD =
     | kw_for
     | kw_loop
     | kw_while
+    | kw_match
 
     | kw_hang
 
@@ -256,8 +278,10 @@ kw_false = ${ "false" }
 
 kw_type = ${ "type" }
 kw_enum = ${ "enum" }
-kw_struct = ${ "struct" }
+kw_impl = ${ "impl" }
 kw_trait = ${ "trait" }
+kw_struct = ${ "struct" }
+
 
 kw_in = ${ "in" }
 kw_out = ${ "out" }
@@ -272,6 +296,7 @@ kw_else = ${ "else" }
 kw_hang = ${ "hang" }
 kw_loop = ${ "loop" }
 kw_while = ${ "while" }
+kw_match = ${ "match" }
 kw_throws = ${ "throws" }
 kw_async = ${ "async" }
 kw_await = ${ "await" }

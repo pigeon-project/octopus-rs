@@ -1,3 +1,6 @@
+# fuck idea
+/.idea
+
 /cruntime/cmake-build-debug
 
 /target
